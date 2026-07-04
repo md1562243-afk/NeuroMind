@@ -1,10 +1,8 @@
 // utils/email.js
-// Handles sending OTP emails via Resend (HTTP-based, works on all hosting platforms)
+// Handles sending OTP emails via Brevo HTTP API (works on Render, unlike SMTP)
 
-const { Resend } = require('resend');
+const axios = require('axios');
 require('dotenv').config();
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Generate a random 6-digit OTP
@@ -15,7 +13,7 @@ const generateOTP = () => {
 };
 
 /**
- * Send OTP email to user via Resend
+ * Send OTP email to user via Brevo HTTP API
  * @param {string} email - Recipient email
  * @param {string} otp - The OTP code
  * @param {string} type - 'registration' or 'login'
@@ -67,22 +65,30 @@ const sendOTPEmail = async (email, otp, type = 'login') => {
   `;
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'NeuroMind <onboarding@resend.dev>',
-      to: email,
-      subject: subject,
-      html: htmlContent
-    });
+    const response = await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      {
+        sender: {
+          name: 'NeuroMind',
+          email: process.env.EMAIL_USER // must be the verified Brevo account email
+        },
+        to: [{ email: email }],
+        subject: subject,
+        htmlContent: htmlContent
+      },
+      {
+        headers: {
+          'accept': 'application/json',
+          'api-key': process.env.BREVO_API_KEY,
+          'content-type': 'application/json'
+        }
+      }
+    );
 
-    if (error) {
-      console.error('❌ Resend email error:', error);
-      throw new Error('Failed to send OTP email. Please try again.');
-    }
-
-    console.log('📧 Email sent successfully:', data.id);
-    return { success: true, messageId: data.id };
+    console.log('📧 Email sent successfully:', response.data.messageId);
+    return { success: true, messageId: response.data.messageId };
   } catch (error) {
-    console.error('❌ Email sending failed:', error.message);
+    console.error('❌ Email sending failed:', error.response?.data || error.message);
     throw new Error('Failed to send OTP email. Please try again.');
   }
 };
