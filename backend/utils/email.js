@@ -1,19 +1,10 @@
 // utils/email.js
-// Handles sending OTP emails via Nodemailer
+// Handles sending OTP emails via Resend (HTTP-based, works on all hosting platforms)
 
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 require('dotenv').config();
 
-// Create email transporter using Gmail SMTP
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: process.env.EMAIL_PORT || 587,
-  secure: false, // Use TLS
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Generate a random 6-digit OTP
@@ -24,14 +15,14 @@ const generateOTP = () => {
 };
 
 /**
- * Send OTP email to user
+ * Send OTP email to user via Resend
  * @param {string} email - Recipient email
  * @param {string} otp - The OTP code
  * @param {string} type - 'registration' or 'login'
  */
 const sendOTPEmail = async (email, otp, type = 'login') => {
-  const subject = type === 'registration' 
-    ? 'NeuroMind - Verify Your Email' 
+  const subject = type === 'registration'
+    ? 'NeuroMind - Verify Your Email'
     : 'NeuroMind - Login Verification Code';
 
   const htmlContent = `
@@ -75,17 +66,21 @@ const sendOTPEmail = async (email, otp, type = 'login') => {
     </html>
   `;
 
-  const mailOptions = {
-    from: process.env.EMAIL_FROM || 'NeuroMind <noreply@neuromind.com>',
-    to: email,
-    subject: subject,
-    html: htmlContent
-  };
-
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('📧 Email sent successfully:', info.messageId);
-    return { success: true, messageId: info.messageId };
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'NeuroMind <onboarding@resend.dev>',
+      to: email,
+      subject: subject,
+      html: htmlContent
+    });
+
+    if (error) {
+      console.error('❌ Resend email error:', error);
+      throw new Error('Failed to send OTP email. Please try again.');
+    }
+
+    console.log('📧 Email sent successfully:', data.id);
+    return { success: true, messageId: data.id };
   } catch (error) {
     console.error('❌ Email sending failed:', error.message);
     throw new Error('Failed to send OTP email. Please try again.');
