@@ -9,6 +9,9 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust the first proxy (needed for Render, Railway, etc. hosting)
+app.set('trust proxy', 1);
+
 // ============================
 // MIDDLEWARE
 // ============================
