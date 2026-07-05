@@ -1,9 +1,8 @@
 // src/pages/LoginPage.js
-// Login with email/password then OTP verification
+// Login with email/password directly (no OTP)
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import OTPVerify from '../components/auth/OTPVerify';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
@@ -18,10 +17,7 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [step, setStep] = useState('login'); // 'login' or 'otp'
-  const [userId, setUserId] = useState(null);
 
-  // Show success message from registration redirect
   useEffect(() => {
     if (location.state?.message) {
       setSuccessMsg(location.state.message);
@@ -44,8 +40,8 @@ const LoginPage = () => {
       const response = await api.post('/auth/login', { email, password });
 
       if (response.data.success) {
-        setUserId(response.data.userId);
-        setStep('otp');
+        login(response.data.token, response.data.user);
+        navigate('/dashboard');
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Check your credentials.');
@@ -54,34 +50,6 @@ const LoginPage = () => {
     }
   };
 
-  // After OTP verified, receive JWT and user data
-  const handleOTPSuccess = (data) => {
-    login(data.token, data.user);
-    navigate('/dashboard');
-  };
-
-  // OTP step
-  if (step === 'otp') {
-    return (
-      <div style={{
-        minHeight: '100vh', background: 'var(--bg)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '20px'
-      }}>
-        <div className="card" style={{ maxWidth: '480px', width: '100%', padding: '40px' }}>
-          <OTPVerify
-            type="login"
-            email={email}
-            userId={userId}
-            onSuccess={handleOTPSuccess}
-            onBack={() => setStep('login')}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  // Login form
   return (
     <div style={{
       minHeight: '100vh',
@@ -90,7 +58,6 @@ const LoginPage = () => {
       padding: '20px'
     }}>
       <div style={{ width: '100%', maxWidth: '460px' }}>
-        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <Link to="/" style={{ textDecoration: 'none' }}>
             <div style={{
@@ -158,16 +125,6 @@ const LoginPage = () => {
               </div>
             </div>
 
-            {/* Login steps indicator */}
-            <div style={{
-              background: '#F8FAFC', borderRadius: '10px',
-              padding: '12px 16px', marginBottom: '20px',
-              fontSize: '13px', color: '#64748B'
-            }}>
-              <strong style={{ color: '#4F46E5' }}>Login process: </strong>
-              Email + Password → OTP Verification → Access Dashboard
-            </div>
-
             <button
               type="submit"
               className="btn btn-primary btn-full btn-lg"
@@ -176,9 +133,9 @@ const LoginPage = () => {
               {loading ? (
                 <>
                   <div className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px' }} />
-                  Verifying...
+                  Signing In...
                 </>
-              ) : 'Continue →'}
+              ) : 'Sign In →'}
             </button>
           </form>
 
@@ -190,9 +147,8 @@ const LoginPage = () => {
           </p>
         </div>
 
-        {/* Security note */}
         <p style={{ textAlign: 'center', marginTop: '16px', color: '#94A3B8', fontSize: '13px' }}>
-          🔒 Protected with JWT & 2-Factor Authentication
+          🔒 Protected with JWT Authentication
         </p>
       </div>
     </div>

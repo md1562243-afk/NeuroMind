@@ -1,11 +1,11 @@
 // src/pages/RegisterPage.js
-// User registration with DOB picker and password strength indicator
+// User registration with DOB picker and password strength indicator (no OTP)
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import OTPVerify from '../components/auth/OTPVerify';
+import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
 // Password strength checker
@@ -29,8 +29,8 @@ const getPasswordStrength = (password) => {
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
-  // Form fields
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -38,28 +38,22 @@ const RegisterPage = () => {
     confirm_password: '',
     gender: ''
   });
-  const [dob, setDob] = useState(null); // Date object for DatePicker
+  const [dob, setDob] = useState(null);
 
-  // UI state
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [step, setStep] = useState('form'); // 'form' or 'otp'
-  const [registeredEmail, setRegisteredEmail] = useState('');
 
   const passwordStrength = getPasswordStrength(formData.password);
 
-  // Handle text input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear field error when user types
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  // Validate form before submission
   const validate = () => {
     const newErrors = {};
     if (!formData.full_name.trim()) newErrors.full_name = 'Full name is required.';
@@ -71,7 +65,6 @@ const RegisterPage = () => {
     return newErrors;
   };
 
-  // Submit registration form
   const handleSubmit = async (e) => {
     e.preventDefault();
     setApiError('');
@@ -85,7 +78,6 @@ const RegisterPage = () => {
     setLoading(true);
 
     try {
-      // Format DOB as YYYY-MM-DD
       const formattedDob = dob.toISOString().split('T')[0];
 
       const response = await api.post('/auth/register', {
@@ -97,8 +89,9 @@ const RegisterPage = () => {
       });
 
       if (response.data.success) {
-        setRegisteredEmail(formData.email);
-        setStep('otp');
+        // Log the user in immediately with the returned token
+        login(response.data.token, response.data.user);
+        navigate('/dashboard');
       }
     } catch (err) {
       setApiError(err.response?.data?.message || 'Registration failed. Please try again.');
@@ -107,34 +100,6 @@ const RegisterPage = () => {
     }
   };
 
-  // After OTP verified successfully
-  const handleOTPSuccess = () => {
-    navigate('/login', {
-      state: { message: 'Account created! Please login.' }
-    });
-  };
-
-  // OTP verification step
-  if (step === 'otp') {
-    return (
-      <div style={{
-        minHeight: '100vh', background: 'var(--bg)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '20px'
-      }}>
-        <div className="card" style={{ maxWidth: '480px', width: '100%', padding: '40px' }}>
-          <OTPVerify
-            type="registration"
-            email={registeredEmail}
-            onSuccess={handleOTPSuccess}
-            onBack={() => setStep('form')}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  // Registration form step
   return (
     <div style={{
       minHeight: '100vh',
@@ -143,7 +108,6 @@ const RegisterPage = () => {
       padding: '20px'
     }}>
       <div style={{ width: '100%', maxWidth: '520px' }}>
-        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '12px',
@@ -170,7 +134,6 @@ const RegisterPage = () => {
           {apiError && <div className="alert alert-error">{apiError}</div>}
 
           <form onSubmit={handleSubmit}>
-            {/* Full Name */}
             <div className="form-group">
               <label className="form-label">Full Name</label>
               <input
@@ -184,7 +147,6 @@ const RegisterPage = () => {
               {errors.full_name && <p className="form-error">{errors.full_name}</p>}
             </div>
 
-            {/* Email */}
             <div className="form-group">
               <label className="form-label">Email Address</label>
               <input
@@ -198,7 +160,6 @@ const RegisterPage = () => {
               {errors.email && <p className="form-error">{errors.email}</p>}
             </div>
 
-            {/* Date of Birth with DatePicker */}
             <div className="form-group">
               <label className="form-label">Date of Birth</label>
               <DatePicker
@@ -209,8 +170,8 @@ const RegisterPage = () => {
                 }}
                 dateFormat="dd/MM/yyyy"
                 placeholderText="Select your date of birth"
-                maxDate={new Date()}                    // Cannot select future dates
-                showYearDropdown                         // Year dropdown for easy navigation
+                maxDate={new Date()}
+                showYearDropdown
                 showMonthDropdown
                 dropdownMode="select"
                 yearDropdownItemNumber={100}
@@ -219,7 +180,6 @@ const RegisterPage = () => {
               {errors.dob && <p className="form-error">{errors.dob}</p>}
             </div>
 
-            {/* Gender */}
             <div className="form-group">
               <label className="form-label">Gender</label>
               <select
@@ -236,7 +196,6 @@ const RegisterPage = () => {
               {errors.gender && <p className="form-error">{errors.gender}</p>}
             </div>
 
-            {/* Password */}
             <div className="form-group">
               <label className="form-label">Password</label>
               <div style={{ position: 'relative' }}>
@@ -264,7 +223,6 @@ const RegisterPage = () => {
               </div>
               {errors.password && <p className="form-error">{errors.password}</p>}
 
-              {/* Password strength bar */}
               {formData.password && (
                 <div style={{ marginTop: '8px' }}>
                   <div className="progress-bar">
@@ -284,7 +242,6 @@ const RegisterPage = () => {
               )}
             </div>
 
-            {/* Confirm Password */}
             <div className="form-group">
               <label className="form-label">Confirm Password</label>
               <div style={{ position: 'relative' }}>
@@ -313,7 +270,6 @@ const RegisterPage = () => {
               {errors.confirm_password && <p className="form-error">{errors.confirm_password}</p>}
             </div>
 
-            {/* Submit */}
             <button
               type="submit"
               className="btn btn-primary btn-full btn-lg"
